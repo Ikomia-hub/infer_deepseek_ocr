@@ -71,11 +71,11 @@ Ikomia Studio offers a friendly UI with the same features as the API.
 - **prompt** (string, default: `"<|grounding|>Convert the document to markdown."`): Text instruction appended after the image token to control the output style and task.
 - **mode** (enum, default: `Gundam`): Preset controlling resolution and cropping. One of: `Tiny`, `Small`, `Base`, `Large`, `Gundam`.
 
-        - Gundam (Recommended): Balanced performance with crop mode
-        - Base: Standard quality without cropping
-        - Large: Highest quality for complex documents
-        - Small: Faster processing, good for simple text
-        - Tiny: Fastest, suitable for clear printed text
+        - Gundam (Recommended): Balanced performance with crop mode # base_size = 1024, image_size = 640, crop_mode = True
+        - Base: Standard quality without cropping                   # base_size = 1024, image_size = 1024, crop_mode = False
+        - Large: Highest quality for complex documents              # base_size = 1280, image_size = 1280, crop_mode = False
+        - Small: Faster processing, good for simple text            # base_size = 640, image_size = 640, crop_mode = False
+        - Tiny: Fastest, suitable for clear printed text            # base_size = 512, image_size = 512, crop_mode = False  
 - **test_compress** (bool, default: `True`): Enable internal compression/fast path to reduce compute and VRAM. Turn off for maximum fidelity.
 
 
@@ -119,7 +119,7 @@ wf = Workflow()
 algo = wf.add_task(name="infer_deepseek_ocr", auto_connect=True)
 
 # Run on your image  
-wf.run_on(url="example_image.png")
+wf.run_on(url="https://github.com/NanoNets/Nanonets-OCR2/blob/main/assets/bank_statement.jpg?raw=true")
 
 # Iterate over outputs
 for output in algo.get_outputs():
