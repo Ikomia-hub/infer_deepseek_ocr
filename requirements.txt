@@ -6,6 +6,6 @@ accelerate>=1.4.0
 sentencepiece>=0.2.0
 pillow>=11.1.0
 transformers>=4.46.3,<=4.49.0
-flash-attn
+# flash-attn # Not supported on Windows & Slow down the inference on L4 24Gb RAM
 addict
 easydict
