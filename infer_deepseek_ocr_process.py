@@ -1,8 +1,12 @@
 import copy
+import json
 import os
+import tempfile
 from typing import Any
 
+import numpy as np
 import torch
+from PIL import Image
 from ikomia import core, dataprocess, utils
 from transformers import AutoModel, AutoTokenizer
 
@@ -20,6 +24,8 @@ MODES = {
 # - Class to handle the algorithm parameters
 # - Inherits PyCore.CWorkflowTaskParam from Ikomia API
 # --------------------
+
+
 class InferDeepseekOcrParam(core.CWorkflowTaskParam):
 
     def __init__(self):
@@ -42,7 +48,8 @@ class InferDeepseekOcrParam(core.CWorkflowTaskParam):
         self.mode = str(params.get("mode", "Gundam"))
         self.test_compress = utils.strtobool(params["test_compress"])
 
-        self.update = (old_model_name != self.model_name) or (old_cuda != self.cuda)
+        self.update = (old_model_name != self.model_name) or (
+            old_cuda != self.cuda)
 
     def get_values(self):
         params = {
@@ -75,15 +82,18 @@ class InferDeepseekOcr(dataprocess.C2dImageTask):
         self.tokenizer: Any = None
         self.base_dir = os.path.dirname(os.path.realpath(__file__))
         self.model_folder = os.path.join(self.base_dir, "weights")
-        self.output_folder = os.path.join(self.base_dir, "output")
         os.makedirs(self.model_folder, exist_ok=True)
-        os.makedirs(self.output_folder, exist_ok=True)
         self.device = torch.device("cpu")
         self.img_prompt = "<image>"
+        self.temp_image_dir = os.path.join(self.base_dir, "tmp_images")
+        os.makedirs(self.temp_image_dir, exist_ok=True)
+        self.output_dir = os.path.join(self.base_dir, "output")
+        os.makedirs(self.output_dir, exist_ok=True)
 
     def load_model(self):
         param = self.get_param_object()
-        self.device = torch.device("cuda") if param.cuda and torch.cuda.is_available() else torch.device("cpu")
+        self.device = torch.device(
+            "cuda") if param.cuda and torch.cuda.is_available() else torch.device("cpu")
 
         # Prefer bfloat16 on CUDA, otherwise float32
         torch_dtype = torch.bfloat16 if self.device.type == "cuda" else torch.float32
@@ -94,6 +104,15 @@ class InferDeepseekOcr(dataprocess.C2dImageTask):
             trust_remote_code=True,
             cache_dir=self.model_folder,
         )
+
+        # Configure tokenizer to avoid warnings
+        if self.tokenizer.pad_token is None:
+            # Set pad_token to eos_token if not set
+            if self.tokenizer.eos_token is not None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+            else:
+                # Add a pad token if neither exists
+                self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 
         self.model = AutoModel.from_pretrained(
             param.model_name,
@@ -125,34 +144,104 @@ class InferDeepseekOcr(dataprocess.C2dImageTask):
 
         # Input image
         img_input = self.get_input(0)
-        image_path = img_input.source_file_path
 
-        # Ensure model is loaded or reload if settings changed
-        if self.model is None or self.tokenizer is None or param.update:
-            self.load_model()
+        temp_file_path = None
+        try:
+            # Always convert the input to a temporary PNG file
+            image_data = img_input.get_image()
+            if image_data is None:
+                raise ValueError(
+                    "No valid image input found. Please provide either a valid image file path "
+                    "or an image array."
+                )
 
-        with torch.no_grad():
-            # Run inference
-            # Resolve mode to underlying size/crop configuration
-            base_size, image_size, crop_mode = MODES.get(param.mode, MODES["Gundam"])
-            res = self.model.infer(
-                self.tokenizer,
-                prompt=self.img_prompt + param.prompt,
-                image_file=image_path,
-                output_path=self.output_folder,
-                base_size=base_size,
-                image_size=image_size,
-                crop_mode=crop_mode,
-                test_compress=param.test_compress,
-            )
+            pil_image = None
+            if isinstance(image_data, np.ndarray):
+                if image_data.size == 0:
+                    raise ValueError(
+                        "No valid image input found. Please provide either a valid image file path "
+                        "or a non-empty image array."
+                    )
+                if image_data.dtype != np.uint8:
+                    if image_data.max() <= 1.0:
+                        image_data = (image_data * 255).astype(np.uint8)
+                    else:
+                        image_data = image_data.astype(np.uint8)
 
-        # Prepare output
-        output_txt = self.get_output(1)
-        # res may be a string or dict depending on remote code; normalize to text
-        response_text = res if isinstance(res, str) else str(res)
-        output_txt.data = {
-            "response": response_text,
-        }
+                if image_data.ndim == 2:
+                    pil_image = Image.fromarray(image_data)
+                elif image_data.ndim == 3:
+                    pil_image = Image.fromarray(image_data)
+                else:
+                    raise ValueError(
+                        f"Unsupported image array shape: {image_data.shape}"
+                    )
+            elif isinstance(image_data, Image.Image):
+                pil_image = image_data
+            else:
+                raise ValueError(
+                    f"Unsupported image type: {type(image_data)}"
+                )
+
+            os.makedirs(self.temp_image_dir, exist_ok=True)
+            with tempfile.NamedTemporaryFile(
+                    suffix='.png', delete=False, dir=self.temp_image_dir) as temp_file:
+                pil_image.save(temp_file, format='PNG')
+                temp_file_path = temp_file.name
+                final_image_path = temp_file_path
+                print(final_image_path)
+
+            # Ensure model is loaded or reload if settings changed
+            if self.model is None or self.tokenizer is None or param.update:
+                self.load_model()
+
+            with torch.no_grad():
+                # Run inference
+                # Resolve mode to underlying size/crop configuration
+                base_size, image_size, crop_mode = MODES.get(
+                    param.mode, MODES["Gundam"])
+                res = self.model.infer(
+                    self.tokenizer,
+                    prompt=self.img_prompt + param.prompt,
+                    image_file=final_image_path,
+                    output_path=self.output_dir,
+                    base_size=base_size,
+                    image_size=image_size,
+                    crop_mode=crop_mode,
+                    test_compress=param.test_compress,
+                    save_results=True
+                )
+
+            # Read the result from output/result.mmd
+            result_file = os.path.join(self.output_dir, "result.mmd")
+            if os.path.exists(result_file):
+                with open(result_file, 'r', encoding='utf-8') as f:
+                    response_text = f.read().strip()
+            else:
+                # Fallback: use res if available, otherwise empty string
+                response_text = res if isinstance(res, str) else (
+                    str(res) if res is not None else "")
+
+            # Prepare output
+            output_txt = self.get_output(1)
+            output_txt.data = {
+                "response": response_text,
+            }
+
+            # Save JSON output
+            json_output_path = os.path.join(
+                self.output_dir, "deepseek_output.json")
+            with open(json_output_path, 'w', encoding='utf-8') as f:
+                json.dump({"response": response_text}, f,
+                          indent=2, ensure_ascii=False)
+
+        finally:
+            # Clean up temporary file if created
+            if temp_file_path and os.path.exists(temp_file_path):
+                try:
+                    os.remove(temp_file_path)
+                except Exception:
+                    pass  # Ignore cleanup errors
 
         self.emit_step_progress()
         self.end_task_run()
@@ -171,7 +260,7 @@ class InferDeepseekOcrFactory(dataprocess.CTaskFactory):
         self.info.short_description = "DeepSeek-OCR document OCR to Markdown"
         # relative path -> as displayed in Ikomia Studio algorithm tree
         self.info.path = "Plugins/Python/VLM"
-        self.info.version = "1.0.0"
+        self.info.version = "1.1.0"
         self.info.icon_path = "images/icon.png"
         self.info.authors = "DeepSeek-AI"
         self.info.article = "DeepSeek-OCR: Contexts Optical Compression"
@@ -206,7 +295,6 @@ class InferDeepseekOcrFactory(dataprocess.CTaskFactory):
         self.info.hardware_config.min_ram = 16
         self.info.hardware_config.gpu_required = False
         self.info.hardware_config.min_vram = 6
-
 
     def create(self, param=None):
         # Create algorithm object
