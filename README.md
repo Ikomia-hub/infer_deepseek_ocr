@@ -53,8 +53,8 @@ wf.run_on(url="https://github.com/NanoNets/Nanonets-OCR2/blob/main/assets/bank_s
 # Display input
 display(algo.get_input(0).get_image())
 # Save output .json
-qwen_output = algo.get_output(1)
-qwen_output.save('deepseek_output.json')
+deepseek_output = algo.get_output(1)
+deepseek_output.save('deepseek_output.json')
 ```
 
 ## :sunny: Use with Ikomia Studio
@@ -70,12 +70,11 @@ Ikomia Studio offers a friendly UI with the same features as the API.
 - **cuda** (bool, default: auto): Use GPU if available. If set to True but no CUDA device is present, it will fall back to CPU.
 - **prompt** (string, default: `"<|grounding|>Convert the document to markdown."`): Text instruction appended after the image token to control the output style and task.
 - **mode** (enum, default: `Gundam`): Preset controlling resolution and cropping. One of: `Tiny`, `Small`, `Base`, `Large`, `Gundam`.
-
-        - Gundam (Recommended): Balanced performance with crop mode # base_size = 1024, image_size = 640, crop_mode = True
-        - Base: Standard quality without cropping                   # base_size = 1024, image_size = 1024, crop_mode = False
-        - Large: Highest quality for complex documents              # base_size = 1280, image_size = 1280, crop_mode = False
-        - Small: Faster processing, good for simple text            # base_size = 640, image_size = 640, crop_mode = False
-        - Tiny: Fastest, suitable for clear printed text            # base_size = 512, image_size = 512, crop_mode = False  
+    - Gundam (Recommended): Balanced performance with crop mode # base_size = 1024, image_size = 640, crop_mode = True
+    - Base: Standard quality without cropping                   # base_size = 1024, image_size = 1024, crop_mode = False
+    - Large: Highest quality for complex documents              # base_size = 1280, image_size = 1280, crop_mode = False
+    - Small: Faster processing, good for simple text            # base_size = 640, image_size = 640, crop_mode = False
+    - Tiny: Fastest, suitable for clear printed text            # base_size = 512, image_size = 512, crop_mode = False  
 - **test_compress** (bool, default: `True`): Enable internal compression/fast path to reduce compute and VRAM. Turn off for maximum fidelity.
 
 
@@ -101,8 +100,8 @@ wf.run_on(url="https://github.com/NanoNets/Nanonets-OCR2/blob/main/assets/bank_s
 # Show input
 display(algo.get_input(0).get_image())
 # Save output .json
-qwen_output = algo.get_output(1)
-qwen_output.save('deepseek_output.json')
+deepseek_output = algo.get_output(1)
+deepseek_output.save('deepseek_output.json')
 ```
 
 ## :mag: Explore algorithm outputs
