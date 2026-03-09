@@ -23,7 +23,7 @@
 
 The DeepSeek-OCR system consists of two primary components: DeepEncoder and DeepSeek3B-MoE-A570M as the decoder. Together, they achieve an impressive 97% OCR precision when compressing text at a ratio of less than 10× (meaning 10 text tokens compressed into 1 vision token).
 
-![benchmark](https://github.com/deepseek-ai/DeepSeek-OCR/blob/main/assets/fig1.png?raw=true)
+![benchmark](https://raw.githubusercontent.com/deepseek-ai/DeepSeek-OCR/refs/heads/main/assets/fig1.png)
 
 ## :rocket: Use with Ikomia API
 
@@ -48,7 +48,7 @@ wf = Workflow()
 algo = wf.add_task(name="infer_deepseek_ocr", auto_connect=True)
 
 # Run on your image  
-wf.run_on(url="https://github.com/NanoNets/Nanonets-OCR2/blob/main/assets/bank_statement.jpg?raw=true")
+wf.run_on(url="https://raw.githubusercontent.com/NanoNets/Nanonets-OCR2/refs/heads/main/assets/bank_statement.jpg")
 
 # Display input
 display(algo.get_input(0).get_image())
@@ -95,7 +95,7 @@ algo.set_parameters({
     })
 
 # Run on your image  
-wf.run_on(url="https://github.com/NanoNets/Nanonets-OCR2/blob/main/assets/bank_statement.jpg?raw=true")
+wf.run_on(url="https://raw.githubusercontent.com/NanoNets/Nanonets-OCR2/refs/heads/main/assets/bank_statement.jpg")
 
 # Show input
 display(algo.get_input(0).get_image())
@@ -118,7 +118,7 @@ wf = Workflow()
 algo = wf.add_task(name="infer_deepseek_ocr", auto_connect=True)
 
 # Run on your image  
-wf.run_on(url="https://github.com/NanoNets/Nanonets-OCR2/blob/main/assets/bank_statement.jpg?raw=true")
+wf.run_on(url="https://raw.githubusercontent.com/NanoNets/Nanonets-OCR2/refs/heads/main/assets/bank_statement.jpg")
 
 # Iterate over outputs
 for output in algo.get_outputs():
